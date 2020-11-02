@@ -6,7 +6,10 @@ import Gallery from 'react-fine-uploader'
 import 'react-fine-uploader/gallery/gallery.css'
 
 
-const FileList=[];
+const FileList={
+    fileName:"",
+    chunkList:[]
+};
 
 
 const uploader = new FineUploaderTraditional({
@@ -30,26 +33,15 @@ const uploader = new FineUploaderTraditional({
             //        console.log("ERROR")
             //    })
             },
-            onUpload:function(id,name,response) {
-                console.log("___",name);
-                console.log("___",id);
-                console.log("___",response)
+            onUploadChunkSuccess:function(id,name,response) {
+                // console.log("___",name);
+                // console.log("___",id);
+                // console.log("___",response)      
+               FileList["fileName"]=response["fileName"]
+               FileList["chunkList"].push(response["chunkName"])
+                console.log(FileList)
                 },
-                onValidate:function(e){ 
-                    let data={
-                        filename:e['name'],
-                         size:e['size'],
-                         randomName:new Date().getTime(),
-                    }
-                    FileList['filename']={}
-                    FileList['filename']=data
-                    console.log("***")
-                    console.log(FileList)
-                    
-
-
-                    },
-           
+            
         },
         chunking: {
           enabled: true,
@@ -57,7 +49,7 @@ const uploader = new FineUploaderTraditional({
               enabled: true
           },
           success: {
-            endpoint: "http://127.0.0.1/api/videos/processVideo"
+            endpoint: `http://127.0.0.1/api/videos/processVideo`
         }
         },
         // deleteFile: {

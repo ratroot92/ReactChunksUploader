@@ -5,7 +5,7 @@ namespace App\Controllers;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use Slim\Http\UploadedFile;
-
+use Exception;
 class VideoController
 {
 
@@ -19,14 +19,14 @@ class VideoController
      * @return string filename of moved file
      */
 
-    public function moveUploadedFile($directory, UploadedFile $uploadedFile, $randomFileName)
+    public function moveUploadedFile($directory, UploadedFile $uploadedFile, $uniqueIdentifier)
     {
-        $extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
+        //$extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
         $extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
         $fileCounter = $this->countFilesInDirectory($directory) + 1;
-        $basename = $randomFileName . "_" . $fileCounter;
+        $basename = $uniqueIdentifier . "_" . $fileCounter;
         $upload= $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR . $basename);
-        return $upload;
+        return $basename;
     }
 
     public function printCli($message)
@@ -54,8 +54,9 @@ class VideoController
     public function uploadChunks(Request $request, Response $response,$args)
     {
         $randomFileName=$_REQUEST['name'];
+        $uniqueIdentifier=$_POST['qquuid'];
 
-      
+        
 
         $uploadedFiles = $request->getUploadedFiles();
         $uploadedFile = $uploadedFiles['qqfile'];
@@ -66,7 +67,7 @@ class VideoController
         $day = date("d");
         // $randomFileName = $this->createRandomFileName();
 
-        $uploadDirectory = "$this->uploadDirectory/$year/$month/$day/$randomFileName/";
+        $uploadDirectory = "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier/";
 
         if (!file_exists($this->uploadDirectory)) {
             mkdir($uploadDirectory, 0777, true);
@@ -75,29 +76,59 @@ class VideoController
             $this->printCli("Directory already exist  ");
         }
         if ($uploadedFile->getError() === UPLOAD_ERR_OK) {
-            $filename = $this->moveUploadedFile($uploadDirectory, $uploadedFile, $randomFileName);
+            $chunkName = $this->moveUploadedFile($uploadDirectory, $uploadedFile, $uniqueIdentifier);
             $this->printCli("Done");
         } else {
             $this->printCli("Error");
         }
         return $response->withJson(['success' => true,
-            'fileName' =>'name']);
+            'fileName' =>$randomFileName,
+            'chunkName' =>$chunkName]);
 
     }
 
     public function processVideoChunks(Request $request, Response $response)
     {
-        $directory = $this->uploadDirectory;
-        $filecount = 0;
-        $files = glob($directory . "*");
-        if ($files) {
-            $filecount = count($files);
 
-        }
+        $uniqueIdentifier=$_POST['qquuid'];
+        $year = date("Y");
+        $month = date("m");
+        $day = date("d");
+       
 
+     
+        if($uniqueIdentifier){
+           // $dirName = $this->uploadDirectory.'/'.$uniqueIdentifier;
+            $dirName = "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier";
+            $totalChunks=$this->countFilesInDirectory($dirName);
+            $chunksUploaded = glob($dirName.'/*');
+            if (!file_exists($dirName) || empty($chunksUploaded)) {
+                throw new Exception("This file cannot be processed video chunks does not exist",409);
+            }
+            $targetFile =  "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier/$uniqueIdentifier";
+            $fileInfo = pathinfo($targetFile);
+            // $fileExtension = $fileInfo['extension'];
+            $fileExtension = 'mp4';
+            if (count($chunksUploaded) === $totalChunks) {
+                for ($i = 1; $i <= $totalChunks; $i++) {
+                    $file = fopen($targetFile.'_'.$i, 'rb');
+                    $buff = fread($file, 2097152);
+                    fclose($file);
+                    // combining file and removing chunks
+                    $final = fopen($targetFile.'.'.$fileExtension, 'ab');
+                    $write = fwrite($final, $buff);
+                    fclose($final);
+                    //unlink($targetFile.'-'.$i);
+                }
         return $response->withJson(['success' => true,
-        'fileNames' =>$_REQUEST['fileName']]);
+        'targetFile' =>$targetFile,
+        'chunksUploaded' =>$chunksUploaded,
+        'totalChunks' =>$totalChunks,
+        'dirName' =>$dirName,
+     ]);
 
+    }
+}
     }
 
 }
