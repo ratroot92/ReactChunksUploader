@@ -19,6 +19,14 @@ class VideoController
      * @return string filename of moved file
      */
 
+
+    public function getExtUploadedFile($uploadedFile){
+		$extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
+		return $extension;
+    }
+    
+
+
     public function moveUploadedFile($directory, UploadedFile $uploadedFile, $uniqueIdentifier)
     {
         //$extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
@@ -28,6 +36,17 @@ class VideoController
         $upload= $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR . $basename);
         return $basename;
     }
+    public function moveUploadedChunk($directory,  $uploadedFile,$chunkData,$uniqueIdentifier){
+		$extension = $this->getExtUploadedFile($uploadedFile);
+        $fileCounter = $this->countFilesInDirectory($directory) + 1;
+        $basename = $uniqueIdentifier . "_" . $fileCounter;
+	    if (!file_exists($dirName)) {
+		    mkdir($dirName, 0777, true);
+		}
+	    $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR .$basename);
+        return $basename;
+	}
+
 
     public function printCli($message)
     {
@@ -54,8 +73,8 @@ class VideoController
     public function uploadChunks(Request $request, Response $response,$args)
     {
         $randomFileName=$_REQUEST['name'];
-        $uniqueIdentifier=$_POST['qquuid'];
-
+      //  $uniqueIdentifier=$_POST['qquuid'];
+        $uniqueIdentifier=  str_replace('-', '', $_POST['qquuid']);
         
 
         $uploadedFiles = $request->getUploadedFiles();
@@ -76,7 +95,10 @@ class VideoController
             $this->printCli("Directory already exist  ");
         }
         if ($uploadedFile->getError() === UPLOAD_ERR_OK) {
-            $chunkName = $this->moveUploadedFile($uploadDirectory, $uploadedFile, $uniqueIdentifier);
+            $file = $uploadedFile->file;
+          //  $chunkName = $this->moveUploadedFile($uploadDirectory, $uploadedFile, $uniqueIdentifier);
+            $file = $uploadedFile->file;
+            $chunkName = $this->moveUploadedChunk($uploadDirectory, $uploadedFile, $_POST,$uniqueIdentifier);
             $this->printCli("Done");
         } else {
             $this->printCli("Error");
@@ -86,11 +108,13 @@ class VideoController
             'chunkName' =>$chunkName]);
 
     }
+ 
 
     public function processVideoChunks(Request $request, Response $response)
     {
 
-        $uniqueIdentifier=$_POST['qquuid'];
+      // $uniqueIdentifier=$_POST['qquuid'];
+        $uniqueIdentifier=  str_replace('-', '', $_POST['qquuid']);
         $year = date("Y");
         $month = date("m");
         $day = date("d");
@@ -118,7 +142,7 @@ class VideoController
                     $final = fopen($targetFile.'.'.$fileExtension, 'ab');
                     $write = fwrite($final, $buff);
                     fclose($final);
-                    //unlink($targetFile.'-'.$i);
+                    unlink($targetFile.'_'.$i);
                 }
         return $response->withJson(['success' => true,
         'targetFile' =>$targetFile,
