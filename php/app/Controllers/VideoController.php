@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Controllers;
 
 use Slim\Http\Request;
@@ -19,34 +18,25 @@ class VideoController
      * @return string filename of moved file
      */
 
-
-    public function getExtUploadedFile($uploadedFile){
-		$extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
-		return $extension;
-    }
-    
-
-
-    public function moveUploadedFile($directory, UploadedFile $uploadedFile, $uniqueIdentifier)
+    public function getExtUploadedFile($uploadedFile)
     {
-        //$extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
-        $extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
+        $extension = pathinfo($uploadedFile->getClientFilename() , PATHINFO_EXTENSION);
+        return $extension;
+    }
+
+    
+    public function moveUploadedChunk($directory, $uploadedFile, $chunkData, $uniqueIdentifier)
+    {
+        $extension = $this->getExtUploadedFile($uploadedFile);
         $fileCounter = $this->countFilesInDirectory($directory) + 1;
         $basename = $uniqueIdentifier . "_" . $fileCounter;
-        $upload= $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR . $basename);
+        if (!file_exists($directory))
+        {
+            mkdir($directory, 0777, true);
+        }
+        $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR . $basename);
         return $basename;
     }
-    public function moveUploadedChunk($directory,  $uploadedFile,$chunkData,$uniqueIdentifier){
-		$extension = $this->getExtUploadedFile($uploadedFile);
-        $fileCounter = $this->countFilesInDirectory($directory) + 1;
-        $basename = $uniqueIdentifier . "_" . $fileCounter;
-	    if (!file_exists($dirName)) {
-		    mkdir($dirName, 0777, true);
-		}
-	    $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR .$basename);
-        return $basename;
-	}
-
 
     public function printCli($message)
     {
@@ -58,8 +48,8 @@ class VideoController
 
     public function countFilesInDirectory($path)
     {
-        $files = scandir($path);
-        return $num_files = count($files) - 2;
+        $files = glob($path . '/*');
+        return count($files);
 
     }
 
@@ -70,13 +60,10 @@ class VideoController
         return $removeDashes;
     }
 
-    public function uploadChunks(Request $request, Response $response,$args)
+    public function uploadChunks(Request $request, Response $response, $args)
     {
-        $randomFileName=$_REQUEST['name'];
-      //  $uniqueIdentifier=$_POST['qquuid'];
-        $uniqueIdentifier=  str_replace('-', '', $_POST['qquuid']);
-        
-
+       
+        $uniqueIdentifier = str_replace('-', '', $_POST['qquuid']);
         $uploadedFiles = $request->getUploadedFiles();
         $uploadedFile = $uploadedFiles['qqfile'];
         // Directory check
@@ -84,75 +71,74 @@ class VideoController
         $year = date("Y");
         $month = date("m");
         $day = date("d");
-        // $randomFileName = $this->createRandomFileName();
-
+      
         $uploadDirectory = "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier/";
 
-        if (!file_exists($this->uploadDirectory)) {
+        if (!file_exists($this->uploadDirectory))
+        {
             mkdir($uploadDirectory, 0777, true);
-            $this->printCli("Directory does not exist -- created ");
-        } else {
-            $this->printCli("Directory already exist  ");
         }
-        if ($uploadedFile->getError() === UPLOAD_ERR_OK) {
+        
+        if ($uploadedFile->getError() === UPLOAD_ERR_OK)
+        {
             $file = $uploadedFile->file;
-          //  $chunkName = $this->moveUploadedFile($uploadDirectory, $uploadedFile, $uniqueIdentifier);
-            $file = $uploadedFile->file;
-            $chunkName = $this->moveUploadedChunk($uploadDirectory, $uploadedFile, $_POST,$uniqueIdentifier);
-            $this->printCli("Done");
-        } else {
-            $this->printCli("Error");
+            $chunkName = $this->moveUploadedChunk($uploadDirectory, $uploadedFile, $_POST, $uniqueIdentifier);
+            
         }
-        return $response->withJson(['success' => true,
-            'fileName' =>$randomFileName,
-            'chunkName' =>$chunkName]);
+        return $response->withJson(['success' => true, 'fileName' => $uniqueIdentifier, 'chunkName' => $chunkName]);
 
     }
- 
 
     public function processVideoChunks(Request $request, Response $response)
     {
 
-      // $uniqueIdentifier=$_POST['qquuid'];
-        $uniqueIdentifier=  str_replace('-', '', $_POST['qquuid']);
+        // $uniqueIdentifier=$_POST['qquuid'];
+        $uniqueIdentifier = str_replace('-', '', $_POST['qquuid']);
         $year = date("Y");
         $month = date("m");
         $day = date("d");
-       
 
-     
-        if($uniqueIdentifier){
-           // $dirName = $this->uploadDirectory.'/'.$uniqueIdentifier;
+        if ($uniqueIdentifier)
+        {
+
+            $returnResponse = function ($info = null, $filelink = null, $status = "error")
+            {
+                die(json_encode(array(
+                    "status" => $status,
+                    "info" => $info,
+                    "file_link" => $filelink
+                )));
+            };
+            // $dirName = $this->uploadDirectory.'/'.$uniqueIdentifier;
             $dirName = "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier";
-            $totalChunks=$this->countFilesInDirectory($dirName);
-            $chunksUploaded = glob($dirName.'/*');
-            if (!file_exists($dirName) || empty($chunksUploaded)) {
-                throw new Exception("This file cannot be processed video chunks does not exist",409);
+            $totalChunks = $this->countFilesInDirectory($dirName);
+            $chunksUploaded = glob($dirName . '/*');
+            if (!file_exists($dirName) || empty($chunksUploaded))
+            {
+                throw new Exception("This file cannot be processed video chunks does not exist", 409);
             }
-            $targetFile =  "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier/$uniqueIdentifier";
+            $targetFile = "$this->uploadDirectory/$year/$month/$day/$uniqueIdentifier/$uniqueIdentifier";
             $fileInfo = pathinfo($targetFile);
             // $fileExtension = $fileInfo['extension'];
             $fileExtension = 'mp4';
-            if (count($chunksUploaded) === $totalChunks) {
-                for ($i = 1; $i <= $totalChunks; $i++) {
-                    $file = fopen($targetFile.'_'.$i, 'rb');
+            if (count($chunksUploaded) === $totalChunks)
+            {
+                for ($i = 1;$i <= $totalChunks;$i++)
+                {
+                    $file = fopen($targetFile . '_' . $i, 'rb');
                     $buff = fread($file, 2097152);
                     fclose($file);
                     // combining file and removing chunks
-                    $final = fopen($targetFile.'.'.$fileExtension, 'ab');
+                    $final = fopen($targetFile . '.' . $fileExtension, 'ab');
                     $write = fwrite($final, $buff);
                     fclose($final);
-                    unlink($targetFile.'_'.$i);
+                    unlink($targetFile . '_' . $i);
                 }
-        return $response->withJson(['success' => true,
-        'targetFile' =>$targetFile,
-        'chunksUploaded' =>$chunksUploaded,
-        'totalChunks' =>$totalChunks,
-        'dirName' =>$dirName,
-     ]);
 
-    }
-}
+            }
+            return $response->withJson(['success' => true, 'targetFile' => $targetFile, 'chunksUploaded' => $chunksUploaded, 'totalChunks' => $totalChunks, 'dirName' => $dirName, ]);
+        }
     }
 
 }
+
