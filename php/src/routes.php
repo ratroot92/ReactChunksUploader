@@ -23,3 +23,12 @@ $app->post(
 
 
 
+
+
+$app->get(
+	'/api/videos/convertVideo',
+	'App\Controllers\VideoController:convertVideo'
+	);
+
+
+

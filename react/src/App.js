@@ -13,12 +13,15 @@ const FileList = {
 const uploader = new FineUploaderTraditional({
   options: {
     callbacks: {
-      onAllComplete: function(id, name, response) {
-        console.log("onAllComplete")
-        // console.log("allcomp",name);
-        // console.log("allcomp",id);
-        // console.log("allcomp",response)
-      },
+      // onAllComplete: function(id, name, response) {
+      //   console.log("onAllComplete")
+      //   fetch('http://127.0.0.1/api/videos/convertVideo',).then((data)=>{
+      //     console.log("asd")
+
+      //   }).then((err)=>{
+      //     console.log("err");
+      //   })
+      // },
       onComplete: function(id, name, response) {
           console.log("onComplete")
         //    console.log("comp",name);
@@ -34,9 +37,9 @@ const uploader = new FineUploaderTraditional({
         // console.log("___",name);
         // console.log("___",id);
         // console.log("___",response)
-        FileList["fileName"] = response["fileName"];
-        FileList["chunkList"].push(response["chunkName"]);
-        console.log(FileList);
+        // FileList["fileName"] = response["fileName"];
+        // FileList["chunkList"].push(response["chunkName"]);
+        // console.log(JSON.parse(FileList));
       }
     },
     chunking: {
@@ -59,7 +62,7 @@ const uploader = new FineUploaderTraditional({
       endpoint: `http://127.0.0.1/api/videos/uploadChunks`
     },
     retry: {
-      enableAuto: true
+      enableAuto: false
     }
   }
 });
